@@ -33,7 +33,9 @@ namespace DungeonEscape.Models.Spells
                 else if (caster.TryConsumeResources(ResourceType, ResourceCost))
                 {
                     // Calculate damage based on the caster's attack power and the damage multiplier
-                    int damage = (int)(warrior.CalculateAttackDamage() * damageMultiplier);
+                    int baseDamage = warrior.Strength;
+                    int rageBonus = Math.Min(1, warrior.Rage / 10);
+                    int damage = (int)((baseDamage + rageBonus) * damageMultiplier);
 
                     // Apply the damage to the target
                     target.TakeDamage(damage);

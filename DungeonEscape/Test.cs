@@ -181,19 +181,19 @@ namespace DungeonEscape
                 Console.WriteLine($"{Mete.Name}s Rage: {Mete.Rage}/{Mete.MaxRage}");
             }
 
-            BerserkerStrike? bersterStrike = Mete.Abilities.Find(abililty => abililty is BerserkerStrike) as BerserkerStrike;
-            if (bersterStrike != null)
+            BerserkerStrike? berserkerStrike = Mete.Abilities.Find(abililty => abililty is BerserkerStrike) as BerserkerStrike;
+            if (berserkerStrike != null)
             {
-                Console.WriteLine($"Testing {bersterStrike.Name} for the 1st time:");
-                bersterStrike.Cast(Mete, Roy);
+                Console.WriteLine($"Testing {berserkerStrike.Name} for the 1st time:");
+                berserkerStrike.Cast(Mete, Roy);
                 Console.WriteLine($"\nRage of {Mete.Name}: {Mete.Rage}/{Mete.MaxRage}");
 
-                Console.WriteLine($"Testing {bersterStrike.Name} for the 2nd time: (should be on cooldown)");
-                bersterStrike.Cast(Mete, Roy);
+                Console.WriteLine($"Testing {berserkerStrike.Name} for the 2nd time: (should be on cooldown)");
+                berserkerStrike.Cast(Mete, Roy);
                 Console.WriteLine($"\nRage of {Mete.Name}: {Mete.Rage}/{Mete.MaxRage}");
 
-                Console.WriteLine($"Testing {bersterStrike.Name} for the 3rd time:(should be on cooldown)");
-                bersterStrike.Cast(Mete, Roy);
+                Console.WriteLine($"Testing {berserkerStrike.Name} for the 3rd time:(should be on cooldown)");
+                berserkerStrike.Cast(Mete, Roy);
                 Console.WriteLine($"\nRage of {Mete.Name}: {Mete.Rage}/{Mete.MaxRage}");
 
                 Console.WriteLine("\nGenerating more rage with basic attacks:");
@@ -204,11 +204,12 @@ namespace DungeonEscape
                     Console.WriteLine($"{Mete.Name}s Rage: {Mete.Rage}/{Mete.MaxRage}");
                 }
 
-                Console.WriteLine($"\nResetting cooldown and casting {bersterStrike.Name} for the 4th time: ");
-                bersterStrike.Cast(Mete, Roy);
+                Console.WriteLine($"\nResetting cooldown and casting {berserkerStrike.Name} for the 4th time: ");
+                berserkerStrike.ResetCooldown();
+                berserkerStrike.Cast(Mete, Roy);
                 Console.WriteLine($"\nRage of {Mete.Name}: {Mete.Rage}/{Mete.MaxRage}");
             }
-            Console.WriteLine("\n Warrior Test Completed.");
+            Console.WriteLine("\nWarrior Test Completed.");
         }
 
         public static void TestRogueAbilities()
