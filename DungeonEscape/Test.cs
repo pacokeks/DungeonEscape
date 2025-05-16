@@ -157,7 +157,7 @@ namespace DungeonEscape
         public static void TestWarriorAbilities()
         {
             Console.Clear();
-            Console.WriteLine("\"=== Test: Warrior Spells ===\n");
+            Console.WriteLine("=== Test: Warrior Spells ===\n");
 
             Warrior Mete = new Warrior(name: "Mete", health: 120, defense: 15, magicResistance: 5, strength: 15);
             TestEnemy Roy = new TestEnemy(name: "Roy", health: 100, defense: 5, magicResistance: 5);
@@ -219,7 +219,21 @@ namespace DungeonEscape
 
         public static void TestCombat()
         {
-            Console.WriteLine("Test Combat");
+            Console.Clear();
+            Console.WriteLine("=== Test:Combat Routine ===\n");
+
+            Mage Pascal = new Mage("Pascal", health: 80, defense: 5, magicResistance: 15, intelligence: 20);
+            Warrior Mete = new Warrior(name: "Mete", health: 120, defense: 15, magicResistance: 5, strength: 15);
+            TestEnemy Roy = new TestEnemy(name: "Roy", health: 100, defense: 5, magicResistance: 5);
+
+            Console.WriteLine("Combat participants:");
+            Console.WriteLine($"Mage: {Pascal.Name} (Health: {Pascal.Health}/{Pascal.MaxHealth}, Mana: {Pascal.Mana}/{Pascal.MaxMana})");
+            Console.WriteLine($"Warrior: {Mete.Name} (Health: {Mete.Health}/{Mete.MaxHealth}, Rage: {Mete.Rage}/{Mete.MaxRage})");
+            Console.WriteLine($"TestEnemy: {Roy.Name} (Health: {Roy.Health}/{Roy.MaxHealth})\n");
+
+            Console.WriteLine($"=== Round 1 ===");
+
+
         }
 
         public class TestEnemy : BaseCharacter
