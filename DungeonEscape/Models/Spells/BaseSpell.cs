@@ -175,17 +175,23 @@ namespace DungeonEscape.Models.Spells
         {
             // 1) If no caster provided, return 0.
             if (caster == null)
+            {
                 return 0;
+            }
 
             // 2) Try to find the "SpellPower" property on the caster type.
             var prop = caster.GetType().GetProperty("SpellPower");
             if (prop == null)
+            {
                 return 0;
+            }
 
             // 3) Read the value and ensure it's an int before returning.
             var value = prop.GetValue(caster);
             if (value is int intValue)
+            {
                 return intValue;
+            }
 
             // 4) If property exists but value is null or not an int, return 0.
             return 0;
@@ -200,19 +206,25 @@ namespace DungeonEscape.Models.Spells
         {
             // 1) If no caster provided, return 0.
             if (caster == null)
+            {
                 return 0;
+            }
 
             // 2) Try to find the Strength property on the caster type.
-            var prop = caster.GetType().GetProperty("Strength");    
+            var prop = caster.GetType().GetProperty("Strength");
             if (prop == null)
+            {
                 return 0;
+            }
 
             // 3) Read the value and ensure it's an int before returning.
             var value = prop.GetValue(caster);
             if (value is int intValue)
+            {
                 return intValue;
+            }
 
-            // 4) If property exists but value is null or not an int, return 0
+            // 4) If property exists but value is null or not an int, return 0.
             return 0;
         }
     }

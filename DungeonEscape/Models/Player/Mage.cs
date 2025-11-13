@@ -114,7 +114,6 @@ namespace DungeonEscape.Models.Player
         /// <summary>
         /// Regenerates mana over time or after combat.
         /// </summary>
-        /// <param name="regen_amount">Amount of mana to restore</param>
         public void RegenerateMana(int regen_amount)
         {
             int oldMana = Mana;
@@ -124,6 +123,14 @@ namespace DungeonEscape.Models.Player
             {
                 Console.WriteLine($"{Name} regenerates {Mana - oldMana} mana. Mana: {Mana}/{MaxMana}");
             }
+        }
+
+        /// <summary>
+        /// Allow items to add mana via AddResource.
+        /// </summary>
+        public override void AddResource(int amount)
+        {
+            RegenerateMana(amount);
         }
 
         /// <summary>

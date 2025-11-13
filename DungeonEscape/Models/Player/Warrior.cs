@@ -191,6 +191,14 @@ namespace DungeonEscape.Models.Player
         }
 
         /// <summary>
+        /// Allow items to add rage via AddResource.
+        /// </summary>
+        public override void AddResource(int amount)
+        {
+            GenerateRage(amount);
+        }
+
+        /// <summary>
         /// Displays warrior-specific stats in addition to base stats.
         /// </summary>
         public override void ShowStats()

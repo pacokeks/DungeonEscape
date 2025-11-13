@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.AccessControl;
-using System.Text;
-using System.Threading.Tasks;
+using DungeonEscape.Models.Items;
 using ResourceType = DungeonEscape.Models.ResourceType;
 
 namespace DungeonEscape.Models
@@ -99,7 +97,11 @@ namespace DungeonEscape.Models
         /// </summary>
         public void EnterDefend()
         {
-            if (_isDefending) return;
+            if (_isDefending)
+            {
+                return;
+            }
+
             _isDefending = true;
             Console.WriteLine($"{Name} assumes a defensive stance (next incoming damage will use doubled defense values).");
         }
@@ -109,7 +111,11 @@ namespace DungeonEscape.Models
         /// </summary>
         public void ExitDefend()
         {
-            if (!_isDefending) return;
+            if (!_isDefending)
+            {
+                return;
+            }
+
             _isDefending = false;
             Console.WriteLine($"{Name} stops defending.");
         }
@@ -152,9 +158,145 @@ namespace DungeonEscape.Models
         public virtual void TakeDamage(int damage, DamageType damageType = DamageType.Physical)
         {
             if (damageType == DamageType.Physical)
+            {
                 TakePhysicalDamage(damage);
+            }
             else
+            {
                 TakeMagicalDamage(damage);
+            }
+        }
+
+        /// <summary>
+        /// Inventory
+        /// </summary>
+        public List<BaseItem> Inventory { get; } = new List<BaseItem>();
+        public int MaxInventory { get; protected set; } = 10;
+
+        /// <summary>
+        /// Add an item to inventory. Returns true if added.
+        /// </summary>
+        public bool AddItem(BaseItem item)
+        {
+            if (item == null)
+            {
+                return false;
+            }
+
+            if (Inventory.Count >= MaxInventory)
+            {
+                Console.WriteLine($"{Name}'s inventory is full. Cannot pick up {item.Name}.");
+                return false;
+            }
+
+            Inventory.Add(item);
+            Console.WriteLine($"{Name} picked up {item.Name}.");
+            return true;
+        }
+
+        /// <summary>
+        /// Remove an item from inventory. Returns true if removed.
+        /// </summary>
+        public bool RemoveItem(BaseItem item)
+        {
+            if (item == null)
+            {
+                return false;
+            }
+
+            var removed = Inventory.Remove(item);
+            if (removed)
+            {
+                Console.WriteLine($"{Name} removed {item.Name} from inventory.");
+            }
+
+            return removed;
+        }
+
+        /// <summary>
+        /// Show inventory contents.
+        /// </summary>
+        public void ShowInventory()
+        {
+            Console.WriteLine($"\n=== {Name}'s Inventory ({Inventory.Count}/{MaxInventory}) ===");
+            if (!Inventory.Any())
+            {
+                Console.WriteLine("Empty.");
+                return;
+            }
+
+            for (int i = 0; i < Inventory.Count; i++)
+            {
+                var it = Inventory[i];
+                Console.WriteLine($"{i + 1}) {it.Name} - {it.Description}  (Target: {it.AllowedTarget}, Consumable: {it.IsConsumable}, Charges: {(it.Charges.HasValue ? it.Charges.Value.ToString() : "∞")})");
+            }
+        }
+
+        /// <summary>
+        /// Use an item by index (1-based). Returns true if used.
+        /// </summary>
+        public bool UseItem(int index, BaseCharacter? target = null)
+        {
+            if (index <= 0 || index > Inventory.Count)
+            {
+                Console.WriteLine("Invalid item index.");
+                return false;
+            }
+
+            var item = Inventory[index - 1];
+
+            if (!item.CanTarget(this, target, Inventory.Cast<BaseCharacter>()))
+            {
+                // pass null for allies in typical single-player scenarios
+                // Here we only check basic target rules; the UI usually picks appropriate target
+            }
+
+            bool used = item.Use(this, target);
+            if (used)
+            {
+                bool shouldRemove = item.ConsumeOneUse();
+                if (shouldRemove)
+                {
+                    Inventory.RemoveAt(index - 1);
+                }
+            }
+
+            return used;
+        }
+
+        /// <summary>
+        /// Use an item by name (first match). Returns true if used.
+        /// </summary>
+        public bool UseItem(string itemName, BaseCharacter? target = null)
+        {
+            var item = Inventory.FirstOrDefault(i => i.Name.Equals(itemName, StringComparison.OrdinalIgnoreCase));
+            if (item == null)
+            {
+                Console.WriteLine($"{Name} doesn't have an item named '{itemName}'.");
+                return false;
+            }
+
+            bool used = item.Use(this, target);
+            if (used)
+            {
+                bool shouldRemove = item.ConsumeOneUse();
+                if (shouldRemove)
+                {
+                    Inventory.Remove(item);
+                }
+            }
+
+            return used;
+        }
+
+        /// <summary>
+        /// Generic hook to add resource to the character (used by ResourceItem).
+        /// Override in derived classes to implement actual resource gain.
+        /// Default: print message and do nothing.
+        /// </summary>
+        public virtual void AddResource(int amount)
+        {
+            Console.WriteLine($"{Name} cannot receive generic resource via item (no AddResource override).");
         }
 
         /// <summary>
