@@ -4,8 +4,7 @@ using System.Linq;
 using System.Security.AccessControl;
 using System.Text;
 using System.Threading.Tasks;
-using DungeonEscape.Models.Spells;
-using ResourceType = DungeonEscape.Models.Spells.ResourceType;
+using ResourceType = DungeonEscape.Models.ResourceType;
 
 namespace DungeonEscape.Models
 {
@@ -86,38 +85,76 @@ namespace DungeonEscape.Models
             MagicResistance = in_magicResistance;
         }
 
+        // ---------- Simple defend flag ----------
+        private bool _isDefending;
+
+        /// <summary>
+        /// True while the character has an active defend status.
+        /// </summary>
+        public bool IsDefending => _isDefending;
+
+        /// <summary>
+        /// Enter defensive stance. While defending, effective Defense and MagicResistance are doubled for damage calculations.
+        /// This method only toggles a flag — no permanent stat changes.
+        /// </summary>
+        public void EnterDefend()
+        {
+            if (_isDefending) return;
+            _isDefending = true;
+            Console.WriteLine($"{Name} assumes a defensive stance (next incoming damage will use doubled defense values).");
+        }
+
+        /// <summary>
+        /// Exit defensive stance. Restores normal damage calculations.
+        /// </summary>
+        public void ExitDefend()
+        {
+            if (!_isDefending) return;
+            _isDefending = false;
+            Console.WriteLine($"{Name} stops defending.");
+        }
+
         /// <summary>
         /// Reduces the character's health based on incoming physical damage and defense value.
-        /// Virtual allows derived classes to add special behavior (e.g., damage reflection, shields).
+        /// If IsDefending is true, Defense is doubled for the calculation (only for this calculation).
         /// </summary>
         /// <param name="damage">The raw damage amount before defense calculation</param>
-        public virtual void TakePhysicalDamage(int damage)
+        protected virtual void TakePhysicalDamage(int damage)
         {
-            // Calculate actual damage by subtracting defense, ensuring at least 1 damage is dealt
-            int actualDamage = Math.Max(1, damage - Defense);
+            int effectiveDefense = _isDefending ? Defense * 2 : Defense;
+            int actualDamage = Math.Max(1, damage - effectiveDefense);
 
-            // Reduce health but ensure it doesn't go below 0
             Health = Math.Max(0, Health - actualDamage);
-
-            // Output the result of the damage calculation
             Console.WriteLine($"{Name} takes {actualDamage} physical damage. Health: {Health}/{MaxHealth}");
         }
 
         /// <summary>
         /// Reduces the character's health based on incoming magical damage and magic resistance.
-        /// Virtual allows derived classes to add special behavior (e.g., spell shields, absorption).
+        /// If IsDefending is true, MagicResistance is doubled for the calculation (only for this calculation).
         /// </summary>
         /// <param name="damage">The raw magical damage amount before magic resistance calculation</param>
-        public virtual void TakeMagicalDamage(int damage)
+        protected virtual void TakeMagicalDamage(int damage)
         {
-            // Calculate actual damage by subtracting magic resistance, ensuring at least 1 damage is dealt
-            int actualDamage = Math.Max(1, damage - MagicResistance);
+            int effectiveMagicRes = _isDefending ? MagicResistance * 2 : MagicResistance;
+            int actualDamage = Math.Max(1, damage - effectiveMagicRes);
 
-            // Reduce health but ensure it doesn't go below 0
             Health = Math.Max(0, Health - actualDamage);
-
-            // Output the result of the damage calculation
             Console.WriteLine($"{Name} takes {actualDamage} magical damage. Health: {Health}/{MaxHealth}");
+        }
+
+        /// <summary>
+        /// Generic damage method that applies the appropriate resistance.
+        /// Automatically routes to TakePhysicalDamage or TakeMagicalDamage based on type.
+        /// Call ExitDefend() after the hit if you want defend to only affect a single incoming hit.
+        /// </summary>
+        /// <param name="damage">Raw damage amount</param>
+        /// <param name="damageType">Type of damage being dealt</param>
+        public virtual void TakeDamage(int damage, DamageType damageType = DamageType.Physical)
+        {
+            if (damageType == DamageType.Physical)
+                TakePhysicalDamage(damage);
+            else
+                TakeMagicalDamage(damage);
         }
 
         /// <summary>
@@ -147,7 +184,8 @@ namespace DungeonEscape.Models
 
             int damage = CalculateAttackDamage();
             Console.WriteLine($"{Name} attacks {target.Name} for {damage} damage!");
-            target.TakePhysicalDamage(damage);
+
+            target.TakeDamage(damage, DamageType.Physical);
 
             // Hook for derived classes to add effects after attacking
             OnAfterNormalAttack(target, damage);
@@ -197,6 +235,7 @@ namespace DungeonEscape.Models
                 Console.WriteLine($"{PrimaryResourceType}: {CurrentResource}/{MaxResource}");
             }
 
+            Console.WriteLine($"Defending: {IsDefending}");
             Console.WriteLine($"Status: {(IsAlive ? "Alive" : "Defeated")}");
         }
 

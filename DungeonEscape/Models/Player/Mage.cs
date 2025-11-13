@@ -5,7 +5,7 @@ using System.Security.AccessControl;
 using System.Text;
 using System.Threading.Tasks;
 using DungeonEscape.Models.Spells;
-using ResourceType = DungeonEscape.Models.Spells.ResourceType;
+using ResourceType = DungeonEscape.Models.ResourceType;
 
 namespace DungeonEscape.Models.Player
 {
@@ -30,6 +30,11 @@ namespace DungeonEscape.Models.Player
         /// </summary>
         public int SpellPower { get; private set; }
 
+        /// <summary>
+        /// Spellbook: all spells the mage knows.
+        /// </summary>
+        public List<BaseSpell> Spellbook { get; private set; }
+
         // Implement abstract properties from base class
         public override ResourceType PrimaryResourceType => ResourceType.Mana;
         public override int CurrentResource => Mana;
@@ -51,6 +56,19 @@ namespace DungeonEscape.Models.Player
             Mana = MaxMana; // Start with full mana
             SpellPower = in_spellPower;
             BaseAttack = 10; // Mages have lower base physical attack
+
+            Spellbook = new List<BaseSpell>();
+            InitializeSpellbook();
+        }
+
+        /// <summary>
+        /// Initialize default spells for the mage.
+        /// </summary>
+        protected virtual void InitializeSpellbook()
+        {
+            LearnSpell(new Fireball());
+            LearnSpell(new Frostbolt());
+            LearnSpell(new ArcaneMissiles());
         }
 
         /// <summary>
@@ -90,6 +108,7 @@ namespace DungeonEscape.Models.Player
 
             // Add mage-specific stats
             Console.WriteLine($"Spell Power: {SpellPower}");
+            Console.WriteLine($"Known Spells: {Spellbook.Count}");
         }
 
         /// <summary>
@@ -108,37 +127,67 @@ namespace DungeonEscape.Models.Player
         }
 
         /// <summary>
-        /// Powerful spell that costs mana and deals high magical damage.
+        /// Learn a new spell. Validates resource type compatibility.
         /// </summary>
-        /// <param name="target">The character to attack with fireball</param>
-        public void CastFireball(BaseCharacter target)
+        public void LearnSpell(BaseSpell spell)
         {
-            const int manaCost = 50;
-            const int baseDamage = 60;
-
-            if (!IsAlive)
+            if (spell == null)
             {
-                Console.WriteLine($"{Name} is defeated and cannot cast spells!");
+                Console.WriteLine("Cannot learn a null spell.");
                 return;
             }
 
-            if (target == null || !target.IsAlive)
+            if (spell.RequiredResourceType != ResourceType.Mana && spell.RequiredResourceType != ResourceType.None)
             {
-                Console.WriteLine($"{Name} has no valid target for Fireball!");
+                Console.WriteLine($"{Name} cannot learn {spell.Name} - requires {spell.RequiredResourceType}!");
                 return;
             }
 
-            if (!TryConsumeResource(manaCost))
+            Spellbook.Add(spell);
+            Console.WriteLine($"{Name} learned {spell.Name}!");
+        }
+
+        /// <summary>
+        /// Cast a spell by name from the spellbook.
+        /// </summary>
+        public bool CastSpell(string spellName, BaseCharacter target)
+        {
+            if (string.IsNullOrWhiteSpace(spellName))
             {
-                Console.WriteLine($"{Name} doesn't have enough mana for Fireball! ({Mana}/{manaCost})");
+                Console.WriteLine("Invalid spell name.");
+                return false;
+            }
+
+            var spell = Spellbook.FirstOrDefault(s => s.Name.Equals(spellName, StringComparison.OrdinalIgnoreCase));
+            if (spell == null)
+            {
+                Console.WriteLine($"{Name} doesn't know the spell '{spellName}'!");
+                return false;
+            }
+
+            return spell.Cast(this, target);
+        }
+
+        /// <summary>
+        /// Shows all spells in the mage's spellbook.
+        /// </summary>
+        public void ShowSpellbook()
+        {
+            Console.WriteLine($"\n=== {Name}'s Spellbook ===");
+            if (Spellbook.Count == 0)
+            {
+                Console.WriteLine("No spells learned yet.");
                 return;
             }
 
-            int damage = baseDamage + SpellPower;
-            Console.WriteLine($"{Name} casts Fireball at {target.Name}!");
-
-            // Use TakeMagicalDamage to properly apply magical damage with magic resistance
-            target.TakeMagicalDamage(damage);
+            for (int i = 0; i < Spellbook.Count; i++)
+            {
+                var s = Spellbook[i];
+                Console.WriteLine($"\n{i + 1}. {s.Name}");
+                Console.WriteLine($"   {s.Description}");
+                Console.WriteLine($"   Cost: {s.ResourceCost} {s.RequiredResourceType}");
+                Console.WriteLine($"   Type: {s.SpellDamageType} damage");
+            }
         }
     }
 }

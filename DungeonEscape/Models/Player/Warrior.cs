@@ -5,7 +5,7 @@ using System.Security.AccessControl;
 using System.Text;
 using System.Threading.Tasks;
 using DungeonEscape.Models.Spells;
-using ResourceType = DungeonEscape.Models.Spells.ResourceType;
+using ResourceType = DungeonEscape.Models.ResourceType;
 
 namespace DungeonEscape.Models.Player
 {
@@ -30,6 +30,11 @@ namespace DungeonEscape.Models.Player
         /// </summary>
         public int Strength { get; private set; }
 
+        /// <summary>
+        /// Known abilities (spells) for the warrior.
+        /// </summary>
+        public List<BaseSpell> Abilities { get; private set; }
+
         // Implement abstract properties from base class
         public override ResourceType PrimaryResourceType => ResourceType.Rage;
         public override int CurrentResource => Rage;
@@ -51,6 +56,72 @@ namespace DungeonEscape.Models.Player
             Rage = 0; // Warriors start with 0 rage and generate it through combat
             Strength = in_strength;
             BaseAttack = BaseAttack + Strength / 2; // Warriors have higher base attack due to strength
+
+            Abilities = new List<BaseSpell>();
+            InitializeAbilities();
+        }
+
+        /// <summary>
+        /// Initializes the warrior's starting abilities.
+        /// Can be customized or extended in derived classes.
+        /// </summary>
+        protected virtual void InitializeAbilities()
+        {
+            LearnAbility(new Execute());
+            LearnAbility(new HeroicStrike());
+            LearnAbility(new Whirlwind());
+        }
+
+        /// <summary>
+        /// Adds a new ability to the warrior's repertoire.
+        /// </summary>
+        /// <param name="ability">The ability to learn</param>
+        public void LearnAbility(BaseSpell ability)
+        {
+            if (ability == null)
+            {
+                Console.WriteLine("Cannot learn a null ability.");
+                return;
+            }
+
+            if (ability.RequiredResourceType != ResourceType.Rage && ability.RequiredResourceType != ResourceType.None)
+            {
+                Console.WriteLine($"{Name} cannot learn {ability.Name} - requires {ability.RequiredResourceType}!");
+                return;
+            }
+
+            Abilities.Add(ability);
+            Console.WriteLine($"{Name} learned {ability.Name}!");
+        }
+
+        /// <summary>
+        /// Uses an ability from the warrior's repertoire by name.
+        /// </summary>
+        /// <param name="abilityName">Name of the ability to use</param>
+        /// <param name="target">Target of the ability</param>
+        /// <returns>True if ability was used successfully</returns>
+        public bool UseAbility(string abilityName, BaseCharacter target)
+        {
+            var ability = Abilities.FirstOrDefault(a => a.Name.Equals(abilityName, StringComparison.OrdinalIgnoreCase));
+
+            if (ability == null)
+            {
+                Console.WriteLine($"{Name} doesn't know the ability '{abilityName}'!");
+                return false;
+            }
+
+            return ability.Cast(this, target);
+        }
+
+        /// <summary>
+        /// Uses an ability directly.
+        /// </summary>
+        /// <param name="ability">The ability to use</param>
+        /// <param name="target">Target of the ability</param>
+        /// <returns>True if ability was used successfully</returns>
+        public bool UseAbility(BaseSpell ability, BaseCharacter target)
+        {
+            return ability.Cast(this, target);
         }
 
         /// <summary>
@@ -92,12 +163,7 @@ namespace DungeonEscape.Models.Player
             GenerateRage(15);
         }
 
-        /// <summary>
-        /// Warriors also generate rage when taking damage.
-        /// Override TakePhysicalDamage to add this behavior.
-        /// </summary>
-        /// <param name="damage">The raw damage amount before defense calculation</param>
-        public override void TakePhysicalDamage(int damage)
+        protected override void TakePhysicalDamage(int damage)
         {
             base.TakePhysicalDamage(damage); // Call base implementation first
 
@@ -134,70 +200,30 @@ namespace DungeonEscape.Models.Player
 
             // Add warrior-specific stats
             Console.WriteLine($"Strength: {Strength}");
+            Console.WriteLine($"Known Abilities: {Abilities.Count}");
         }
 
         /// <summary>
-        /// Powerful execute ability that costs rage and deals devastating damage.
+        /// Shows all abilities in the warrior's repertoire.
         /// </summary>
-        /// <param name="target">The character to execute</param>
-        public void Execute(BaseCharacter target)
+        public void ShowAbilities()
         {
-            const int rageCost = 40;
-            const int baseDamage = 80;
+            Console.WriteLine($"\n=== {Name}'s Abilities ===");
 
-            if (!IsAlive)
+            if (Abilities.Count == 0)
             {
-                Console.WriteLine($"{Name} is defeated and cannot use Execute!");
+                Console.WriteLine("No abilities learned yet.");
                 return;
             }
 
-            if (target == null || !target.IsAlive)
+            for (int i = 0; i < Abilities.Count; i++)
             {
-                Console.WriteLine($"{Name} has no valid target for Execute!");
-                return;
+                var ability = Abilities[i];
+                Console.WriteLine($"\n{i + 1}. {ability.Name}");
+                Console.WriteLine($"   {ability.Description}");
+                Console.WriteLine($"   Cost: {ability.ResourceCost} {ability.RequiredResourceType}");
+                Console.WriteLine($"   Type: {ability.SpellDamageType} damage");
             }
-
-            if (!TryConsumeResource(rageCost))
-            {
-                Console.WriteLine($"{Name} doesn't have enough rage for Execute! ({Rage}/{rageCost})");
-                return;
-            }
-
-            int damage = baseDamage + (Strength * 2);
-            Console.WriteLine($"{Name} executes {target.Name} for {damage} devastating damage!");
-            target.TakePhysicalDamage(damage);
-        }
-
-        /// <summary>
-        /// Heroic Strike - Medium rage cost, medium damage boost.
-        /// </summary>
-        /// <param name="target">The character to strike</param>
-        public void HeroicStrike(BaseCharacter target)
-        {
-            const int rageCost = 25;
-            const int baseDamage = 50;
-
-            if (!IsAlive)
-            {
-                Console.WriteLine($"{Name} is defeated and cannot use Heroic Strike!");
-                return;
-            }
-
-            if (target == null || !target.IsAlive)
-            {
-                Console.WriteLine($"{Name} has no valid target for Heroic Strike!");
-                return;
-            }
-
-            if (!TryConsumeResource(rageCost))
-            {
-                Console.WriteLine($"{Name} doesn't have enough rage for Heroic Strike! ({Rage}/{rageCost})");
-                return;
-            }
-
-            int damage = baseDamage + Strength;
-            Console.WriteLine($"{Name} uses Heroic Strike on {target.Name} for {damage} damage!");
-            target.TakePhysicalDamage(damage);
         }
     }
 }

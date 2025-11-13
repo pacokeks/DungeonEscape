@@ -6,7 +6,7 @@ namespace DungeonEscape
 {
     public class Game
     {
-        public static void Main()
+        public static void RunCombatDemo()
         {
             Console.WriteLine("╔═══════════════════════════════════════╗");
             Console.WriteLine("║  DUNGEON ESCAPE - Combat System Demo ║");
@@ -17,7 +17,7 @@ namespace DungeonEscape
             var warrior = new Warrior("Conan", 250, 25, 5, 100, 35);
 
             // Create an enemy
-            var boss = new Warrior("Dungeon Boss", 300, 20, 8, 100, 30);
+            var boss = new Warrior("Dungeon Boss", 500, 20, 8, 100, 30);
 
             // ============================================
             // DEMO 1: Warrior Rage System
@@ -33,10 +33,11 @@ namespace DungeonEscape
             warrior.NormalAttack(boss);
 
             Console.WriteLine("\n--- Now warrior has enough rage for Execute ---");
-            warrior.Execute(boss);
+            // Use ability via new system
+            warrior.UseAbility("Execute", boss);
 
             Console.WriteLine("\n--- Not enough rage anymore ---");
-            warrior.Execute(boss); // This will fail
+            warrior.UseAbility("Execute", boss); // This will fail if not enough rage
 
             // ============================================
             // DEMO 2: Warrior generates rage from taking damage
@@ -44,10 +45,22 @@ namespace DungeonEscape
             Console.WriteLine("\n\n═══ DEMO 2: Rage from Taking Damage ═══\n");
 
             Console.WriteLine("--- Boss attacks warrior ---");
+            boss.NormalAttack(warrior); // Warrior takes damage AND generates
+
+            Console.WriteLine("--- Boss attacks warrior ---");
+            boss.NormalAttack(warrior); // Warrior takes damage AND generates rage
+
+            Console.WriteLine("\n--- Warrior can't use Heroic Strike now, need more Rage ---");
+            warrior.UseAbility("Heroic Strike", boss);
+
+            Console.WriteLine("--- Boss attacks warrior ---");
+            boss.NormalAttack(warrior); // Warrior takes damage AND generates rage
+
+            Console.WriteLine("--- Boss attacks warrior ---");
             boss.NormalAttack(warrior); // Warrior takes damage AND generates rage
 
             Console.WriteLine("\n--- Warrior can use Heroic Strike now ---");
-            warrior.HeroicStrike(boss);
+            warrior.UseAbility("Heroic Strike", boss);
 
             // ============================================
             // DEMO 3: Mage Mana System
@@ -57,17 +70,17 @@ namespace DungeonEscape
             mage.ShowStats();
             Console.WriteLine("\n--- Mage casts spells until out of mana ---");
 
-            mage.CastFireball(boss);  // 50 mana (100 left)
-            mage.CastFireball(boss);  // 50 mana (50 left)
-            mage.CastFireball(boss);  // 50 mana (0 left)
-            mage.CastFireball(boss);  // Not enough mana!
+            mage.CastSpell("Fireball", boss);  // 50 mana (100 left)
+            mage.CastSpell("Fireball", boss);  // 50 mana (50 left)
+            mage.CastSpell("Fireball", boss);  // 50 mana (0 left)
+            mage.CastSpell("Fireball", boss);  // Not enough mana!
 
             Console.WriteLine("\n--- Mage can still use normal attacks ---");
             mage.NormalAttack(boss);  // Weak but free!
 
             Console.WriteLine("\n--- Mage regenerates mana ---");
             mage.RegenerateMana(100);
-            mage.CastFireball(boss);  // Can cast again!
+            mage.CastSpell("Fireball", boss);  // Can cast again!
 
             // ============================================
             // DEMO 4: Full Combat Simulation
@@ -87,7 +100,7 @@ namespace DungeonEscape
                 // Hero's turn - use Execute if enough rage, otherwise normal attack
                 if (hero.CurrentResource >= 40)
                 {
-                    hero.Execute(enemy);
+                    hero.UseAbility("Execute", enemy);
                 }
                 else
                 {
@@ -103,7 +116,7 @@ namespace DungeonEscape
                 // Enemy's turn
                 if (enemy.CurrentResource >= 25)
                 {
-                    enemy.HeroicStrike(hero);
+                    enemy.UseAbility("Heroic Strike", hero);
                 }
                 else
                 {
