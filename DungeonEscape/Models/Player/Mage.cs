@@ -37,6 +37,7 @@ namespace DungeonEscape.Models.Player
 
         // Implement abstract properties from base class
         public override ResourceType PrimaryResourceType => ResourceType.Mana;
+
         public override int CurrentResource => Mana;
         public override int MaxResource => MaxMana;
 
@@ -67,8 +68,6 @@ namespace DungeonEscape.Models.Player
         protected virtual void InitializeSpellbook()
         {
             LearnSpell(new Fireball());
-            LearnSpell(new Frostbolt());
-            LearnSpell(new ArcaneMissiles());
         }
 
         /// <summary>

@@ -8,7 +8,7 @@
     {
         Self,   // only the user
         Enemy,  // only an enemy target
-        Friend, // allies / party members (requires Party/Allies support in UI/CombatManager)
+        Friend, // allies / party members
         Any     // any valid target (self, enemy, friend)
     }
 }

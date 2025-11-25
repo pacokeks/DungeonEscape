@@ -67,6 +67,12 @@ namespace DungeonEscape.Models
         public abstract int MaxResource { get; }
 
         /// <summary>
+        /// Base (permanent) dodge chance (0.0 - 1.0). Default 5%.
+        /// Temporary bonuses are tracked in the generic buff list.
+        /// </summary>
+        public double DodgeChance { get; protected set; } = 0.05;
+
+        /// <summary>
         /// Constructor for creating a character with base stats.
         /// Protected access modifier ensures only derived classes can instantiate it.
         /// </summary>
@@ -120,14 +126,103 @@ namespace DungeonEscape.Models
             Console.WriteLine($"{Name} stops defending.");
         }
 
+        private readonly List<TemporaryStatBuff> _statBuffs = new();
+
+        private record TemporaryStatBuff(StatType Stat, double Bonus, int RemainingTurns);
+
+        /// <summary>
+        /// Apply a temporary absolute bonus to a stat for a number of turns.
+        /// Bonus is additive; for percentages use values in the [0..1] range for Dodge or relative multipliers for other stats if desired.
+        /// </summary>
+        public void ApplyTemporaryStatBonus(StatType stat, double bonus, int durationTurns)
+        {
+            if (durationTurns <= 0 || Math.Abs(bonus) < double.Epsilon)
+            {
+                return;
+            }
+
+            _statBuffs.Add(new TemporaryStatBuff(stat, bonus, durationTurns));
+            Console.WriteLine($"{Name} receives {FormatBonus(bonus, stat)} to {stat} for {durationTurns} turn(s).");
+        }
+
+        /// <summary>
+        /// Convenience wrapper kept for backward compatibility with dodge-specific calls.
+        /// </summary>
+        public void ApplyTemporaryDodgeBonus(double bonus, int durationTurns)
+        {
+            ApplyTemporaryStatBonus(StatType.Dodge, bonus, durationTurns);
+        }
+
+        /// <summary>
+        /// Get the total additive bonus for a stat from temporary buffs.
+        /// </summary>
+        public double GetTemporaryBonus(StatType stat)
+        {
+            return _statBuffs.Where(b => b.Stat == stat).Sum(b => b.Bonus);
+        }
+
+        /// <summary>
+        /// Returns total current dodge chance (base + temporary bonuses), clamped to [0,1].
+        /// </summary>
+        public double GetTotalDodge()
+        {
+            double tmp = GetTemporaryBonus(StatType.Dodge);
+            double total = DodgeChance + tmp;
+            return Math.Clamp(total, 0.0, 1.0);
+        }
+
+        /// <summary>
+        /// Decrements buff durations by one turn; remove expired buffs.
+        /// Call this after the character's turn ends (or at round end) to let buffs expire.
+        /// </summary>
+        public void TickTurn()
+        {
+            if (_statBuffs.Count == 0)
+            {
+                return;
+            }
+
+            for (int i = _statBuffs.Count - 1; i >= 0; i--)
+            {
+                var b = _statBuffs[i];
+                int next = b.RemainingTurns - 1;
+                if (next <= 0)
+                {
+                    _statBuffs.RemoveAt(i);
+                }
+                else
+                {
+                    _statBuffs[i] = b with { RemainingTurns = next };
+                }
+            }
+        }
+
+        private static string FormatBonus(double bonus, StatType stat)
+        {
+            return stat == StatType.Dodge ? $"+{bonus:P0}" : (bonus >= 0 ? $"+{bonus}" : $"{bonus}");
+        }
+
+        /// <summary>
+        /// Internal dodge roll. Can be overridden if needed.
+        /// </summary>
+        protected virtual bool TryDodge()
+        {
+            double totalDodge = GetTotalDodge();
+            return Random.Shared.NextDouble() < totalDodge;
+        }
+
+        // ---------------- Damage / resist handling ----------------
+
         /// <summary>
         /// Reduces the character's health based on incoming physical damage and defense value.
         /// If IsDefending is true, Defense is doubled for the calculation (only for this calculation).
+        /// Temporary bonuses to Defense are included.
         /// </summary>
         /// <param name="damage">The raw damage amount before defense calculation</param>
         protected virtual void TakePhysicalDamage(int damage)
         {
-            int effectiveDefense = _isDefending ? Defense * 2 : Defense;
+            double tempDef = GetTemporaryBonus(StatType.Defense);
+            int effectiveDefense = _isDefending ? (int)((Defense + tempDef) * 2) : (int)(Defense + tempDef);
             int actualDamage = Math.Max(1, damage - effectiveDefense);
 
             Health = Math.Max(0, Health - actualDamage);
@@ -137,11 +232,13 @@ namespace DungeonEscape.Models
         /// <summary>
         /// Reduces the character's health based on incoming magical damage and magic resistance.
         /// If IsDefending is true, MagicResistance is doubled for the calculation (only for this calculation).
+        /// Temporary bonuses to MagicResistance are included.
         /// </summary>
         /// <param name="damage">The raw magical damage amount before magic resistance calculation</param>
         protected virtual void TakeMagicalDamage(int damage)
         {
-            int effectiveMagicRes = _isDefending ? MagicResistance * 2 : MagicResistance;
+            double tempMR = GetTemporaryBonus(StatType.MagicResistance);
+            int effectiveMagicRes = _isDefending ? (int)((MagicResistance + tempMR) * 2) : (int)(MagicResistance + tempMR);
             int actualDamage = Math.Max(1, damage - effectiveMagicRes);
 
             Health = Math.Max(0, Health - actualDamage);
@@ -149,14 +246,26 @@ namespace DungeonEscape.Models
         }
 
         /// <summary>
-        /// Generic damage method that applies the appropriate resistance.
-        /// Automatically routes to TakePhysicalDamage or TakeMagicalDamage based on type.
+        /// Generic damage method that applies dodge check and appropriate resistance.
+        /// Dodge is checked once per incoming hit before applying damage.
         /// Call ExitDefend() after the hit if you want defend to only affect a single incoming hit.
         /// </summary>
         /// <param name="damage">Raw damage amount</param>
         /// <param name="damageType">Type of damage being dealt</param>
         public virtual void TakeDamage(int damage, DamageType damageType = DamageType.Physical)
         {
+            if (!IsAlive)
+            {
+                return;
+            }
+
+            // Dodge check (applies to any damage type)
+            if (TryDodge())
+            {
+                Console.WriteLine($"{Name} dodges the incoming attack!");
+                return;
+            }
+
             if (damageType == DamageType.Physical)
             {
                 TakePhysicalDamage(damage);
@@ -167,10 +276,13 @@ namespace DungeonEscape.Models
             }
         }
 
+        // ---------------- Inventory & Items (unchanged) ----------------
+
         /// <summary>
         /// Inventory
         /// </summary>
         public List<BaseItem> Inventory { get; } = new List<BaseItem>();
+
         public int MaxInventory { get; protected set; } = 10;
 
         /// <summary>
@@ -245,10 +357,9 @@ namespace DungeonEscape.Models
 
             var item = Inventory[index - 1];
 
-            if (!item.CanTarget(this, target, Inventory.Cast<BaseCharacter>()))
+            if (!item.CanTarget(this, target, allies: null))
             {
-                // pass null for allies in typical single-player scenarios
-                // Here we only check basic target rules; the UI usually picks appropriate target
+                // UI normally prevents this; keep behavior flexible
             }
 
             bool used = item.Use(this, target);
@@ -377,6 +488,7 @@ namespace DungeonEscape.Models
                 Console.WriteLine($"{PrimaryResourceType}: {CurrentResource}/{MaxResource}");
             }
 
+            Console.WriteLine($"Dodge: {GetTotalDodge():P0}");
             Console.WriteLine($"Defending: {IsDefending}");
             Console.WriteLine($"Status: {(IsAlive ? "Alive" : "Defeated")}");
         }

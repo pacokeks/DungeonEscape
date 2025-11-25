@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace DungeonEscape.Models.Spells
 {
@@ -147,12 +149,77 @@ namespace DungeonEscape.Models.Spells
         }
 
         /// <summary>
+        /// Casts the spell from caster to multiple targets.
+        /// Handles validation, resource consumption, and spell effect execution for each target.
+        /// </summary>
+        /// <param name="caster">The character casting the spell</param>
+        /// <param name="targets">The targets of the spell</param>
+        /// <returns>True if spell was successfully cast on all targets, false otherwise</returns>
+        public bool Cast(BaseCharacter caster, IEnumerable<BaseCharacter> targets)
+        {
+            // Validate caster
+            if (!CanCast(caster))
+            {
+                return false;
+            }
+
+            if (targets == null)
+            {
+                Console.WriteLine("No targets provided.");
+                return false;
+            }
+
+            var validTargets = targets.Where(t => t != null && IsValidTarget(t)).ToList();
+            if (!validTargets.Any())
+            {
+                Console.WriteLine("No valid targets available for the spell.");
+                return false;
+            }
+
+            // Consume resources
+            if (!caster.TryConsumeResource(ResourceCost))
+            {
+                Console.WriteLine($"{caster.Name} failed to consume resources for {Name}!");
+                return false;
+            }
+
+            Console.WriteLine($"{caster.Name} casts {Name} on {validTargets.Count} targets!");
+            // By default call the single-target ExecuteSpellEffect per target.
+            ExecuteSpellEffect(caster, validTargets);
+
+            return true;
+        }
+
+        /// <summary>
         /// Executes the actual effect of the spell.
         /// Must be implemented by derived classes to define what the spell does.
         /// </summary>
         /// <param name="caster">The character casting the spell</param>
         /// <param name="target">The target of the spell</param>
         protected abstract void ExecuteSpellEffect(BaseCharacter caster, BaseCharacter target);
+
+        /// <summary>
+        /// Executes the spell effect on a collection of targets.
+        /// Loops through each target and applies the single-target spell effect.
+        /// Derived spells may override this to optimize AoE behavior.
+        /// </summary>
+        /// <param name="caster">The character casting the spell</param>
+        /// <param name="targets">The collection of targets</param>
+        protected virtual void ExecuteSpellEffect(BaseCharacter caster, IReadOnlyCollection<BaseCharacter> targets)
+        {
+            if (targets == null || targets.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var t in targets)
+            {
+                if (t != null && t.IsAlive)
+                {
+                    ExecuteSpellEffect(caster, t);
+                }
+            }
+        }
 
         /// <summary>
         /// Displays information about the spell.

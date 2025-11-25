@@ -44,13 +44,29 @@ namespace DungeonEscape.Combat
                     Console.WriteLine($"{enemy.Name} wins!");
                     break;
                 }
+
+                // ---- TICK BUFFS ONCE PER ROUND (after both acted) ----
+                player.TickTurn();
+                enemy.TickTurn();
             }
         }
 
         private static void ShowBriefStatus(BaseCharacter player, BaseCharacter enemy)
         {
-            Console.WriteLine($"{player.Name}: HP {player.Health}/{player.MaxHealth}  Resource: {player.CurrentResource}/{player.MaxResource}  Defending: {player.IsDefending}");
-            Console.WriteLine($"{enemy.Name} : HP {enemy.Health}/{enemy.MaxHealth}  Resource: {enemy.CurrentResource}/{enemy.MaxResource}  Defending: {enemy.IsDefending}");
+            var playerResource = player.PrimaryResourceType != ResourceType.None
+                ? $"{player.PrimaryResourceType}: {player.CurrentResource}/{player.MaxResource}"
+                : string.Empty;
+
+            var enemyResource = enemy.PrimaryResourceType != ResourceType.None
+                ? $"{enemy.PrimaryResourceType}: {enemy.CurrentResource}/{enemy.MaxResource}"
+                : string.Empty;
+
+            Console.WriteLine($"{player.Name}: HP {player.Health}/{player.MaxHealth}" +
+                              $"{(string.IsNullOrEmpty(playerResource) ? string.Empty : $" | {playerResource}")}  Defending: {player.IsDefending}");
+
+            Console.WriteLine($"{enemy.Name}: HP {enemy.Health}/{enemy.MaxHealth}" +
+                              $"{(string.IsNullOrEmpty(enemyResource) ? string.Empty : $" | {enemyResource}")}  Defending: {enemy.IsDefending}");
+
             Console.WriteLine();
         }
 
@@ -160,6 +176,7 @@ namespace DungeonEscape.Combat
                         }
 
                         var spell = mage.Spellbook[sIdx - 1];
+                        // If spell supports multi-target and should hit all enemies, CombatManager caller can use Cast(caster, IEnumerable<BaseCharacter>)
                         spell.Cast(mage, enemy);
                         return;
                     }
@@ -190,7 +207,17 @@ namespace DungeonEscape.Combat
                         }
 
                         var ability = war.Abilities[aIdx - 1];
-                        ability.Cast(war, enemy);
+
+                        // If ability is AoE (e.g. Whirlwind), call multi-target overload
+                        if (ability is Whirlwind ww)
+                        {
+                            ww.Cast(war, new List<BaseCharacter> { enemy }.Where(e => e != null).ToList());
+                        }
+                        else
+                        {
+                            ability.Cast(war, enemy);
+                        }
+
                         return;
                     }
 
@@ -221,7 +248,16 @@ namespace DungeonEscape.Combat
                 if (usable.Any() && rnd.NextDouble() < 0.7)
                 {
                     var choice = usable[rnd.Next(usable.Count)];
-                    choice.Cast(ew, player);
+
+                    // enemy ability might be AoE (Whirlwind) - cast appropriately
+                    if (choice is Whirlwind wwChoice)
+                    {
+                        wwChoice.Cast(ew, new List<BaseCharacter> { player }.Where(p => p.IsAlive).ToList());
+                    }
+                    else
+                    {
+                        choice.Cast(ew, player);
+                    }
 
                     // if player was defending, restore after hit
                     if (player.IsDefending)
@@ -387,15 +423,8 @@ namespace DungeonEscape.Combat
         // New: party-based round-robin combat
         public static void RunPartyCombat(List<BaseCharacter> partyMembers, List<BaseCharacter> enemies)
         {
-            if (partyMembers == null || partyMembers.Count == 0)
-            {
-                throw new ArgumentException("Party must have at least one member.");
-            }
-
-            if (enemies == null || enemies.Count == 0)
-            {
-                throw new ArgumentException("There must be at least one enemy.");
-            }
+            if (partyMembers == null || partyMembers.Count == 0) throw new ArgumentException("Party must have at least one member.");
+            if (enemies == null || enemies.Count == 0) throw new ArgumentException("There must be at least one enemy.");
 
             var rnd = new Random();
 
@@ -407,13 +436,21 @@ namespace DungeonEscape.Combat
                 Console.WriteLine("Party:");
                 foreach (var m in partyMembers)
                 {
-                    Console.WriteLine($" - {m.Name}: HP {m.Health}/{m.MaxHealth}  Defending: {m.IsDefending}");
+                    var res = m.PrimaryResourceType != ResourceType.None
+                        ? $"| {m.PrimaryResourceType}: {m.CurrentResource}/{m.MaxResource} "
+                        : string.Empty;
+
+                    Console.WriteLine($" - {m.Name}: HP {m.Health}/{m.MaxHealth} {res}Defending: {m.IsDefending}");
                 }
 
                 Console.WriteLine("Enemies:");
                 foreach (var en in enemies)
                 {
-                    Console.WriteLine($" - {en.Name}: HP {en.Health}/{en.MaxHealth}  Defending: {en.IsDefending}");
+                    var res = en.PrimaryResourceType != ResourceType.None
+                        ? $"| {en.PrimaryResourceType}: {en.CurrentResource}/{en.MaxResource} "
+                        : string.Empty;
+
+                    Console.WriteLine($" - {en.Name}: HP {en.Health}/{en.MaxHealth} {res}Defending: {en.IsDefending}");
                 }
 
                 Console.WriteLine();
@@ -468,16 +505,20 @@ namespace DungeonEscape.Combat
                         if (usable.Any() && rnd.NextDouble() < 0.7)
                         {
                             var choice = usable[rnd.Next(usable.Count)];
-                            var target = partyMembers.Where(p => p.IsAlive).OrderBy(_ => rnd.Next()).FirstOrDefault();
-                            if (target != null)
+                            // prefer AoE if available
+                            if (choice is Whirlwind ww)
                             {
-                                choice.Cast(ew, target);
-                                if (target.IsDefending)
+                                ww.Cast(ew, partyMembers.Where(p => p.IsAlive).ToList());
+                            }
+                            else
+                            {
+                                var target = partyMembers.Where(p => p.IsAlive).OrderBy(_ => rnd.Next()).FirstOrDefault();
+                                if (target != null)
                                 {
-                                    target.ExitDefend();
+                                    choice.Cast(ew, target);
+                                    if (target.IsDefending) target.ExitDefend();
                                 }
                             }
-
                             continue;
                         }
                     }
@@ -491,12 +532,8 @@ namespace DungeonEscape.Combat
                             if (target != null)
                             {
                                 choice.Cast(em, target);
-                                if (target.IsDefending)
-                                {
-                                    target.ExitDefend();
-                                }
+                                if (target.IsDefending) target.ExitDefend();
                             }
-
                             continue;
                         }
                     }
@@ -506,11 +543,19 @@ namespace DungeonEscape.Combat
                     if (victim != null)
                     {
                         enemy.NormalAttack(victim);
-                        if (victim.IsDefending)
-                        {
-                            victim.ExitDefend();
-                        }
+                        if (victim.IsDefending) victim.ExitDefend();
                     }
+                }
+
+                // ---- TICK BUFFS ONCE PER ROUND (after all party and enemies acted) ----
+                foreach (var m in partyMembers)
+                {
+                    m.TickTurn();
+                }
+
+                foreach (var en in enemies)
+                {
+                    en.TickTurn();
                 }
 
                 if (!partyMembers.Any(p => p.IsAlive))
@@ -585,17 +630,17 @@ namespace DungeonEscape.Combat
 
                                         var spell = mage.Spellbook[sIdx - 1];
 
-                                        // Use generic PromptSelectTarget for spells (no BaseItem conversion)
-                                        var spellTarget = PromptSelectTarget(member, party, enemies, ItemTarget.Any);
-                                        if (spellTarget == null)
+                                        // special-case AoE spells: Whirlwind is warrior ability, Blink is self-buff (single).
+                                        if (spell is Blink blink)
                                         {
-                                            break;
+                                            blink.Cast(mage, mage);
                                         }
-
-                                        spell.Cast(mage, spellTarget);
-                                        if (spellTarget.IsDefending)
+                                        else
                                         {
-                                            spellTarget.ExitDefend();
+                                            var spellTarget = PromptSelectTarget(member, party, enemies, ItemTarget.Any);
+                                            if (spellTarget == null) break;
+                                            spell.Cast(mage, spellTarget);
+                                            if (spellTarget.IsDefending) spellTarget.ExitDefend();
                                         }
 
                                         return;
@@ -628,17 +673,16 @@ namespace DungeonEscape.Combat
 
                                         var ability = war.Abilities[aIdx - 1];
 
-                                        // Use generic PromptSelectTarget for abilities
-                                        var abilityTarget = PromptSelectTarget(member, party, enemies, ItemTarget.Any);
-                                        if (abilityTarget == null)
+                                        if (ability is Whirlwind ww)
                                         {
-                                            break;
+                                            ww.Cast(war, enemies.Where(e => e.IsAlive).ToList());
                                         }
-
-                                        ability.Cast(war, abilityTarget);
-                                        if (abilityTarget.IsDefending)
+                                        else
                                         {
-                                            abilityTarget.ExitDefend();
+                                            var abilityTarget = PromptSelectTarget(member, party, enemies, ItemTarget.Any);
+                                            if (abilityTarget == null) break;
+                                            ability.Cast(war, abilityTarget);
+                                            if (abilityTarget.IsDefending) abilityTarget.ExitDefend();
                                         }
 
                                         return;
@@ -734,7 +778,6 @@ namespace DungeonEscape.Combat
             }
         }
 
-        // New/updated helper: prompt selecting a target from friend/enemy lists.
         // Shows friendly targets first, then enemies, with continuous numbering.
         // allies may contain the user; lists only living characters.
         public static BaseCharacter? PromptSelectTarget(

@@ -37,6 +37,7 @@ namespace DungeonEscape.Models.Player
 
         // Implement abstract properties from base class
         public override ResourceType PrimaryResourceType => ResourceType.Rage;
+
         public override int CurrentResource => Rage;
         public override int MaxResource => MaxRage;
 
